@@ -1,0 +1,51 @@
+name: jp-charts
+version: 0.1.0
+manifest_version: 2
+# hermes plugins install accepts manifest_version 2 from v0.21.4.
+requires_hermes: ">=0.21.4"
+description: >-
+  Bar, line, stacked and 100% share charts as PNG images that read well on a
+  phone, returned with a MEDIA line so Hermes chat gateways can attach them to
+  the reply. Every bar, point and printed number is checked against the parsed
+  data before the image is returned. Japanese text, 万/億 units, axis units, a
+  source line and color-blind-safe colors are built in. Reads CSV, TSV,
+  Markdown tables, JSON and e-Stat results.
+author: TakeshiTGAL
+license: MIT
+homepage: https://github.com/TakeshiTGAL/hermes-plugin-charts
+tags: [charts, visualization, png, japanese, reports]
+
+provides_tools:
+  - chart_render
+  - chart_validate
+  - chart_types
+provides_hooks:
+  - transform_llm_output
+
+python_dependencies:
+  - "matplotlib>=3.8,<4"
+  - "matplotlib-fontja>=1.0,<2"
+
+config_schema:
+  preset:
+    type: str
+    choices: [mobile, square, wide]
+    default: mobile
+    label: Default size
+    description: mobile 1080x1350 for phones (default), square 1080x1080, wide 1600x900 for slides.
+  locale:
+    type: str
+    choices: [auto, ja, en]
+    default: auto
+    label: Chart language
+    description: Language of the source line, notes and number units. auto follows the data.
+  font_path:
+    type: str
+    default: ""
+    label: Font file (optional)
+    description: Absolute path of a .ttf/.otf/.ttc to use first. Leave empty to use a Japanese system font, or the bundled IPAexGothic.
+  auto_attach:
+    type: bool
+    default: true
+    label: Attach charts to chat replies
+    description: In Telegram, Slack and other chats, add the chart image to the reply when the assistant forgot to. Never changes terminal replies.

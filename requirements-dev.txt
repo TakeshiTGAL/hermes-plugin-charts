@@ -1,0 +1,5 @@
+# Test-only; Hermes installs the runtime dependencies from plugin.yaml.
+matplotlib>=3.8,<4
+matplotlib-fontja>=1.0,<2
+pytest>=8,<10
+pyyaml>=6,<7

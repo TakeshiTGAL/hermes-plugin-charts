@@ -1,0 +1,55 @@
+hermes-plugin-charts
+Copyright (c) 2026 TakeshiTGAL. Licensed under the MIT License (see LICENSE).
+
+This plugin contains no source code copied from the projects below. It follows
+their designs where noted, and credits them here.
+
+------------------------------------------------------------------------------
+1. microsoft/flint-chart  (https://github.com/microsoft/flint-chart)
+
+The request format (data + chart_spec with a chart type, title, subtitle and
+`encodings` that map x / y / color to column names, plus field_display_names),
+the split into a render tool, a validate tool and a chart-type listing tool,
+and the practice of telling the agent in the tool description how to author a
+spec follow flint-chart's design. flint-chart is distributed under this license:
+
+    MIT License
+
+    Copyright (c) Microsoft Corporation.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+"Flint" is a name of Microsoft's project; this plugin is not affiliated with
+or endorsed by Microsoft.
+
+------------------------------------------------------------------------------
+2. Runtime dependencies (installed by Hermes from PyPI, not shipped in this repo)
+
+- matplotlib (Matplotlib License, BSD-compatible) draws the charts.
+- matplotlib-fontja (MIT; Copyright (c) 2018 uehara, (c) 2024 ciffelia) ships
+  the IPAexGothic font, which is used when no Japanese system font is
+  installed. IPAexGothic is distributed under the IPA Font License Agreement
+  v1.0, whose text is included in that package.
+
+------------------------------------------------------------------------------
+3. Color palette
+
+The categorical colors are the Okabe-Ito palette: Masataka Okabe and Kei Ito,
+"Color Universal Design (CUD): How to make figures and presentations that are
+friendly to colorblind people" (2008).
