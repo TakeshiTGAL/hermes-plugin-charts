@@ -35,8 +35,8 @@ spec follow flint-chart's design. flint-chart is distributed under this license:
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-"Flint" is a name of Microsoft's project; this plugin is not affiliated with
-or endorsed by Microsoft.
+"Flint" is a name of Microsoft's project. This plugin is a separate project.
+Microsoft does not endorse it.
 
 ------------------------------------------------------------------------------
 2. Runtime dependencies (installed by Hermes from PyPI, not shipped in this repo)

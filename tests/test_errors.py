@@ -3,7 +3,10 @@
 import copy
 
 from helpers import call
+from mpl import needs_matplotlib
 import examples
+
+pytestmark = needs_matplotlib
 
 
 def _err(plugin, args, tool="chart_render"):

@@ -3,8 +3,16 @@
 import copy
 import importlib
 
-import matplotlib
 import pytest
+
+pytest.importorskip(
+    "matplotlib",
+    reason=(
+        "plugin.yaml は matplotlib>=3.8,<4 と matplotlib-fontja>=1.0,<2 を宣言している。"
+        "この実行環境には入っていない。Hermes の enable が入れる。"
+    ),
+)
+import matplotlib
 from PIL import Image
 
 from helpers import call, load_plugin

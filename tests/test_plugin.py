@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 
 from helpers import PLUGIN_DIR, call
+from mpl import needs_matplotlib
 import examples
 
 
@@ -33,12 +34,15 @@ def test_registered_capabilities_match_manifest(plugin):
     manifest = _yaml("plugin.yaml")
     assert manifest["name"] == "jp-charts"
     assert sorted(ctx.tools) == sorted(manifest["provides_tools"])
-    assert sorted(ctx.hooks) == sorted(manifest["provides_hooks"]) == ["transform_llm_output"]
+    assert sorted(ctx.hooks) == sorted(manifest["provides_hooks"]) == [
+        "pre_llm_call", "pre_tool_call", "transform_llm_output", "transform_tool_result",
+    ]
     assert manifest["manifest_version"] == 2 and manifest["requires_hermes"] == ">=0.21.4"
     assert not manifest.get("requires_env")
     assert not (PLUGIN_DIR / "catalog-entry.yaml").exists()  # the catalog entry lives in hermes-agent
 
 
+@needs_matplotlib
 def test_settings_flow_from_config(plugin):
     ctx = FakeCtx({"preset": "wide"})
     plugin.register(ctx)
@@ -49,6 +53,7 @@ def test_settings_flow_from_config(plugin):
         plugin.register(FakeCtx())
 
 
+@needs_matplotlib
 def test_hook_attaches_forgotten_chart_on_telegram(plugin):
     ctx = FakeCtx()
     plugin.register(ctx)
@@ -60,6 +65,7 @@ def test_hook_attaches_forgotten_chart_on_telegram(plugin):
     assert hook(response_text="次の返信", session_id="tg-1", platform="telegram") is None  # sent once
 
 
+@needs_matplotlib
 def test_hook_leaves_replies_alone_when_model_attached_or_terminal(plugin):
     ctx = FakeCtx()
     plugin.register(ctx)
@@ -71,6 +77,7 @@ def test_hook_leaves_replies_alone_when_model_attached_or_terminal(plugin):
     assert hook(response_text="done", session_id="s-3", platform="telegram") is None  # cleared by cli turn
 
 
+@needs_matplotlib
 def test_hook_leaves_api_server_replies_alone(plugin):
     ctx = FakeCtx()
     plugin.register(ctx)
@@ -79,6 +86,7 @@ def test_hook_leaves_api_server_replies_alone(plugin):
     assert hook(response_text="done", session_id="api-1", platform="api_server") is None
 
 
+@needs_matplotlib
 def test_hook_can_be_turned_off(plugin):
     ctx = FakeCtx({"auto_attach": False})
     plugin.register(ctx)
@@ -89,6 +97,7 @@ def test_hook_can_be_turned_off(plugin):
         plugin.register(FakeCtx())
 
 
+@needs_matplotlib
 def test_pngs_go_to_hermes_image_cache(plugin, charts_home):
     out = call(plugin, "chart_render", examples.POPULATION_TOP10)
     assert Path(out["path"]).parent == charts_home / "hermes" / "cache" / "images"

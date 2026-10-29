@@ -26,12 +26,17 @@ def _dump(obj: Dict[str, Any]) -> str:
 
 
 def _fail(err: ChartError) -> str:
-    return _dump({"success": False, "error": err.to_dict()})
+    return _dump({
+        "success": False,
+        "ok": False,
+        "error_type": err.code,
+        "error": err.to_dict(),
+    })
 
 
 def _internal(exc: Exception) -> str:
     logger.exception("jp-charts plugin failed")
-    return _dump({"success": False, "error": {
+    return _dump({"success": False, "ok": False, "error_type": "internal_error", "error": {
         "code": "internal_error", "message": f"{type(exc).__name__}: {exc}",
         "fix": "This is a bug in the jp-charts plugin, not in your data. Try chart_validate with the same "
                "arguments; if it passes, report the arguments at the plugin's issue tracker."}})

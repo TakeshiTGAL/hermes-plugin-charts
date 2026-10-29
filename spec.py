@@ -158,10 +158,85 @@ def _text(value: Any) -> str:
     return str(value).strip()
 
 
+_ARG_KEYS = {"data", "chart_spec", "field_display_names", "output"}
+_FLAT_SPEC_KEYS = (
+    "chart_type", "title", "subtitle", "unit", "source", "encodings",
+    "orientation", "top_n", "highlight", "y_zero", "notes", "sort",
+)
+_JA_CHART = {
+    "棒": "bar",
+    "棒グラフ": "bar",
+    "縦棒": "column",
+    "縦棒グラフ": "column",
+    "横棒": "barh",
+    "横棒グラフ": "barh",
+    "折れ線": "line",
+    "折れ線グラフ": "line",
+    "推移": "line",
+    "積み上げ": "stacked",
+    "積み上げ棒グラフ": "stacked",
+    "構成比": "share",
+    "帯グラフ": "share",
+    "シェア": "share",
+    "円グラフ": "pie",
+    "ドーナツ": "donut",
+}
+
+
+def _fold_flat(args: Dict[str, Any]) -> Dict[str, Any]:
+    """A top-level chart_type, unit, and source is the same call as chart_spec."""
+    if not isinstance(args, dict):
+        return args
+    args = dict(args)
+    raw_spec = args.get("chart_spec", None)
+    if raw_spec is not None and not isinstance(raw_spec, dict):
+        return args
+    spec = dict(raw_spec or {})
+    moved = False
+    for key in _FLAT_SPEC_KEYS:
+        if key not in args:
+            continue
+        if key not in spec:
+            spec[key] = args[key]
+        args.pop(key)
+        moved = True
+    if moved or raw_spec is not None:
+        args["chart_spec"] = spec
+    return args
+_TOP_N = (
+    "top_n must be a whole number of 1 or more, such as 10; "
+    "decimals and values below 1 are refused and are not rounded."
+)
+_EXTRA = (
+    "Only data, chart_spec, output, and field_display_names are accepted. "
+    "Remove any other argument. Example: chart_type bar, unit 人, source ユーザー提供データ."
+)
+
+
+def _whole_number(value: Any) -> Optional[int]:
+    """An int, an integral float, or digits (full-width included). Bool and 10.5 are not."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, str):
+        folded = unicodedata.normalize("NFKC", value).strip()
+        if re.fullmatch(r"[0-9]+", folded):
+            return int(folded)
+        if re.fullmatch(r"[0-9]+\.0+", folded):
+            return int(folded.split(".", 1)[0])
+    return None
+
+
 def build_plan(args: Dict[str, Any], defaults: Optional[Dict[str, Any]] = None) -> Plan:
     if not isinstance(args, dict):
         raise ChartError("bad_spec", "Arguments must be an object with data and chart_spec.",
                          example=_SPEC_EXAMPLE)
+    args = _fold_flat(args)
+    if any(key not in _ARG_KEYS for key in args):
+        raise ChartError("bad_args", _EXTRA, where="arguments")
     defaults = defaults or {}
     table = load(args.get("data"))
     spec = args.get("chart_spec")
@@ -185,6 +260,7 @@ def build_plan(args: Dict[str, Any], defaults: Optional[Dict[str, Any]] = None) 
 
     # ---- chart type
     raw_type = str(spec.get("chart_type") or spec.get("chartType") or spec.get("type") or "").strip()
+    raw_type = _JA_CHART.get(raw_type, raw_type)
     key = re.sub(r"[\s%-]+", "_", raw_type.lower()).strip("_")
     orientation = str(spec.get("orientation") or "auto").lower()
     if key in _REFUSED:
@@ -369,10 +445,12 @@ def build_plan(args: Dict[str, Any], defaults: Optional[Dict[str, Any]] = None) 
         categories = [categories[i] for i in order]
         values = {s: [values[s][i] for i in order] for s in series}
     category_total = len(categories)
-    top_n = spec.get("top_n")
-    if top_n is not None:
-        if not isinstance(top_n, int) or isinstance(top_n, bool) or top_n < 1:
-            raise ChartError("bad_spec", "top_n must be a whole number of 1 or more.", where="chart_spec.top_n")
+    top_n_raw = spec.get("top_n")
+    top_n = None
+    if top_n_raw is not None:
+        top_n = _whole_number(top_n_raw)
+        if top_n is None or top_n < 1:
+            raise ChartError("bad_args", _TOP_N, where="chart_spec.top_n")
         if top_n < len(categories):
             if sort == "none" and key != "line":
                 warnings.append("top_n kept the first rows as given; set sort to 'desc' to keep the largest.")

@@ -1,5 +1,13 @@
 # jp-charts for Hermes Agent
 
+## 何が唯一か
+
+Before `chart_render` runs, `pre_tool_call` blocks the call when a plotted number was already returned, in this session, with a different unit string. The check reads a comma-grouped number the same way the chart parser reads `1,234`, so `45,095,325,000,000` with unit `百万円` is blocked when that integer was returned as `円`. No PNG is written. A chart whose numbers were not returned by another tool is unchanged. The remembered pairs stay in the process for that session. They are not written to profile state. `transform_llm_output` does not replace or delete the model's sentences. It appends one fixed line only when this turn's tool record has no figure and the turn is in scope: a tool from jp-corporate, jp-edinet, jp-address, jp-subsidies, jp-egov-law, or jp-charts was called, or any tool was called on a company or filing question. The line is: "Tool record: this turn returned no company, filing, address, subsidy, statute, or chart figure, so a number or a fetch claim in this reply is not from a tool result." The decision reads the tool record. It does not match a list of success phrases. A settings reply, a `web_search` result, and a phone number copied from the user are left unchanged. `chart_types` and `chart_validate` are not a figure. A turn whose only area tool is `address_split` is left to that plugin. When a figure was returned, including a capital amount the tool returned, the reply is left as it is. `pre_llm_call` adds one paragraph only on a chart question, and adds nothing on other turns, including "hermes の設定はどこで見る？", "Pythonでフィボナッチ数列を計算する関数を書いて。", and "グラタン皿でチーズグラタンを作る手順を教えて。". A chart question is 図, グラフ, チャート, or the word chart, or `chart_render`, `chart_validate`, or `chart_types` called in the previous turn. A company name and a filing word do not add it. The paragraph is: "Call chart_render only with numbers and the unit string copied from a tool result. Do not call tool_describe. The parameters are known. A comma-grouped number such as 1,234 is the same integer as 1234. A different unit blocks the chart. If no number was returned, do not say a chart was drawn and do not write 取得しました." Hermes keeps the first non-empty `transform_llm_output` string.
+
+## Comparison
+
+Facts checked for the cluster note on 2026-10-26. Buffett Code shows 業績・指標 across several periods on its own pages. This tool does not fetch those figures. It draws a chart only when the unit string matches the unit on the numbers a tool already returned. SPEEDA's company page includes charts inside a report this tool does not reproduce.
+
 Charts for [Hermes Agent](https://github.com/NousResearch/hermes-agent) that you can paste into a report or send to a chat, and trust.
 
 Ask Hermes for a chart and you get a PNG built to be read on a phone, with a `MEDIA:` line that Hermes' chat gateways use to attach the file to the reply. Before the image is handed over, the plugin reads every bar, point and printed number back from the finished figure and compares it with the values it parsed from your data.
@@ -22,7 +30,7 @@ Needs Hermes v0.21.4 or later (`hermes --version`); if yours is older, run `herm
 
    Once the plugin is listed in the Hermes plugin catalog, `hermes plugins install jp-charts --yes-deps --enable` works too. To try a local copy instead, run `hermes plugins install "file://$PWD" --yes-deps --enable` inside a clone of this repository.
 
-2. Start a new chat. If you use Telegram, Slack or another chat app, restart the gateway too:
+2. Start a new chat. The CLI does not need a gateway restart. If you use Telegram, Slack or another chat app, restart the gateway too:
 
    ```bash
    hermes gateway restart
@@ -96,8 +104,10 @@ Set these under `plugins.entries.jp-charts.settings` in `config.yaml`, or in the
 
 - **No network access at run time.** It sends no telemetry and stores no credentials. The only downloads happen at install time, when Hermes installs matplotlib and matplotlib-fontja from PyPI.
 - **Reads files** only when the model passes `data.path`: any absolute path the Hermes process can read, limited to `.csv`, `.tsv`, `.txt` or `.json` files up to 10 MB. Hidden files and folders (names starting with `.`) and everything under the Hermes home folder are refused. Parts of a file it reads come back to the model (in `chart_validate`'s preview and in error messages), like any tool output.
-- **Writes** PNGs to Hermes' image cache (`<HERMES_HOME>/cache/images`, or `<HERMES_HOME>/image_cache` on an older install that still uses it). Run outside Hermes, it writes to `hermes-charts` in the system temp folder. matplotlib keeps its own font cache in its config directory.
-- **Output hook.** It registers one hook, `transform_llm_output`. At the end of a turn on a platform that attaches files (Telegram, Slack, Discord, email, the desktop app, cron deliveries), the hook appends `MEDIA:` lines for charts rendered in that session that the reply does not mention. It changes nothing on cli, tui, acp, sms, local, api_server and webhook turns, nothing when the reply already attaches one of the charts, and nothing when `auto_attach` is off. Other plugins can use the same hook. Hermes calls every `transform_llm_output` hook in load order and keeps the first reply text that one returns, so on a turn where another plugin also rewrites the reply, only one of the two changes is kept. On turns where this plugin has nothing to add, it returns nothing and does not get in the way.
+- **Writes** PNGs to Hermes' image cache (`<HERMES_HOME>/cache/images`, or `<HERMES_HOME>/image_cache` on an older install that still uses it). Run outside Hermes, it writes to `hermes-charts` in the system temp folder. matplotlib keeps its own font cache in its config directory. Removing the plugin deletes its folder only: the PNGs it wrote and the matplotlib and matplotlib-fontja packages stay.
+- **Four hooks.** `transform_tool_result` remembers value and unit pairs for this session and returns nothing, so the tool result is unchanged. `pre_tool_call` blocks `chart_render` when a plotted number was already returned in this session with a different unit string, and no PNG is written. `pre_llm_call` adds one context paragraph only on a chart question: 図, グラフ, チャート, or the word chart, or `chart_render`, `chart_validate`, or `chart_types` called in the previous turn. A company name, a filing word, フィボナッチ数列, and グラタン皿 do not add it. On any other turn, including "hermes の設定はどこで見る？", it adds nothing. The paragraph is: "Call chart_render only with numbers and the unit string copied from a tool result. Do not call tool_describe. The parameters are known. A comma-grouped number such as 1,234 is the same integer as 1234. A different unit blocks the chart. If no number was returned, do not say a chart was drawn and do not write 取得しました." `transform_llm_output` does not replace or delete the model's sentences. It appends one fixed line only when this turn's tool record has no figure and the turn is in scope: a tool from those six books was called, or any tool was called on a company or filing question. The line is: "Tool record: this turn returned no company, filing, address, subsidy, statute, or chart figure, so a number or a fetch claim in this reply is not from a tool result." A settings reply, a `web_search` result, and a phone number copied from the user are left unchanged, whatever words they use. `chart_types` and `chart_validate` are not a figure. A turn whose only area tool is `address_split` is left to that plugin. When a figure was returned, including a capital amount the tool returned, the reply is left as it is, including a Japanese paragraph that repeats that amount. On a platform that attaches files, the same hook can also append a `MEDIA:` line for a chart rendered in that session that the reply does not mention. A MEDIA line is appended only when `auto_attach` is on, and not when the reply already names one of the charts. Hermes keeps the first non-empty `transform_llm_output` string.
+- **Who can call it.** The `charts` toolset is on for every surface by default, including messaging gateways, and asks for no approval: anyone a gateway lets talk to the bot can make it draw charts, and the agent can call the tools on its own. Turn the toolset off per surface with `hermes tools`.
+- **Skill.** The plugin also registers one skill, `chart-png`, which tells the agent to look these tools up with tool_search. On a surface where `hermes tools` turned the tools off, the calls are unavailable. Disabling the plugin removes the skill.
 - **No shell commands and no background processes.** It does not change matplotlib's `rcParams`, so other tools in the same process draw as before. It does add IPAexGothic (and your `font_path`, if set) to matplotlib's shared font list, and while a chart is being drawn it briefly listens to matplotlib's warnings to catch missing glyphs.
 
 ## How it compares
@@ -108,7 +118,7 @@ The table describes flint-chart at commit [`683d5de`](https://github.com/microso
 
 | | flint-chart | lieflat-charts | jp-charts |
 |---|---|---|---|
-| What it is | Chart spec compiler (JS library) + MCP server | Agent skill (`SKILL.md`) + HTML templates | Hermes plugin (3 tools + 1 hook) |
+| What it is | Chart spec compiler (JS library) + MCP server | Agent skill (`SKILL.md`) + HTML templates | Hermes plugin (3 tools + 4 hooks) |
 | Output | Interactive MCP App view by default; PNG/SVG as MCP image content; backend specs (Vega-Lite, ECharts, Chart.js, Plotly, Excel) | HTML charts and full-page HTML reports | PNG file plus a `MEDIA:` line for Hermes' chat gateways to attach |
 | Runtime | Node.js (`npx flint-chart-mcp`) | The agent writes HTML | Python inside Hermes (matplotlib); no browser, no Node |
 | Chart variety | Large (dozens of templates, 10 visual themes) | Large (its `catalog.md` lists 63 chart types; 12 report layouts) | Small on purpose: bar, line, stacked, 100% band |
@@ -145,7 +155,7 @@ Hermes Agent に「このデータをグラフにして」と頼むと、スマ�
 Hermes v0.21.4 以上が必要です（`hermes --version` で確認）。古ければ先に `hermes update` を実行してください。
 
 1. `hermes plugins install TakeshiTGAL/hermes-plugin-charts --yes-deps --enable`（プラグインカタログに載った後は `hermes plugins install jp-charts --yes-deps --enable` でも入ります。手元のコピーで試すときは、clone したフォルダで `hermes plugins install "file://$PWD" --yes-deps --enable`）
-2. 新しいチャットを始める。チャットアプリで使う場合は `hermes gateway restart`
+2. 新しいチャットを始める。CLI に `hermes gateway restart` は要りません。チャットアプリで使う場合は `hermes gateway restart`
 3. 頼む。端末からなら `hermes chat -Q -q "この表を棒グラフにして。単位は万円、出典は販売管理システム。（表を貼る）"`
 
 API キー、Node.js、ヘッドレスブラウザはどれも要りません。
@@ -188,6 +198,12 @@ fix: Fix or remove those cells. Thousands separators, full-width digits, 万/億
 - **Telegram・Slack・Discord・デスクトップアプリ**: Hermes の説明では、`MEDIA:` の行の画像は写真として送られます。
 - **LINE**: `LINE_PUBLIC_URL`（外から見える HTTPS の URL）の設定が必要です。Hermes の LINE 接続は、公開 URL の画像しか送れないためです。
 - **Chatwork**: Hermes に標準の接続がありません。使っている Chatwork 用プラットフォームプラグインがファイル送信に対応していれば届きます。
+
+### 誰が呼べるか・止め方・残るもの
+
+- `charts` の道具は既定でゲートウェイを含む全部の面で有効で、承認を求めません。ゲートウェイでボットと話せる人は誰でもグラフを描かせられ、エージェントも自分で呼べます。面ごとに止めるには `hermes tools`。
+- プラグインは skill `chart-png` を1つ登録します（tool_search でこの道具を探すよう促すもの）。プラグインが有効な間、この skill は全部のセッションの skill 一覧に1行入ります。`hermes tools` で道具を切った面でも入り、その面では道具を呼べないだけです。この行を消すにはプラグインを無効にします。
+- プラグインを削除して消えるのはプラグインのフォルダだけです。書いた PNG と、入れた matplotlib・matplotlib-fontja は残ります。
 
 ## License
 

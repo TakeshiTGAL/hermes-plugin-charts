@@ -1,5 +1,5 @@
 name: jp-charts
-version: 0.1.0
+version: 0.1.10
 manifest_version: 2
 # hermes plugins install accepts manifest_version 2 from v0.21.4.
 requires_hermes: ">=0.21.4"
@@ -21,6 +21,9 @@ provides_tools:
   - chart_types
 provides_hooks:
   - transform_llm_output
+  - transform_tool_result
+  - pre_tool_call
+  - pre_llm_call
 
 python_dependencies:
   - "matplotlib>=3.8,<4"

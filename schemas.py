@@ -36,10 +36,13 @@ _CHART_SPEC = {
     "description": "What to draw. x is always the category/date column and y the numbers, for "
                    "horizontal bars too.",
     "properties": {
-        "chart_type": {"type": "string", "enum": ["bar", "line", "stacked_bar", "share_bar"],
-                       "description": "bar: compare categories. line: change over time. stacked_bar: "
-                                      "totals and their parts. share_bar: composition in % (use "
-                                      "instead of a pie chart)."},
+        "chart_type": {"type": "string",
+                       "enum": ["bar", "line", "stacked_bar", "share_bar",
+                                "棒グラフ", "横棒グラフ", "折れ線グラフ", "積み上げ棒グラフ",
+                                "構成比", "帯グラフ", "円グラフ"],
+                       "description": "bar (棒グラフ): compare categories. line (折れ線グラフ): change over time. "
+                                      "stacked_bar (積み上げ棒グラフ): totals and their parts. "
+                                      "share_bar (構成比): composition in % (use instead of a pie chart)."},
         "title": {"type": "string", "description": "Headline. Say what the reader should see."},
         "subtitle": {"type": "string", "description": "Optional: who/what/when is measured."},
         "unit": {"type": "string", "description": "REQUIRED. What one number counts, as given in the "
@@ -87,24 +90,34 @@ _RENDER_PARAMS = {
     "properties": {
         "data": _DATA,
         "chart_spec": _CHART_SPEC,
+        "chart_type": {"type": "string",
+                       "description": "Flat form of chart_spec.chart_type. Used when chart_spec omits it."},
+        "unit": {"type": "string",
+                 "description": "Flat form of chart_spec.unit. Used when chart_spec omits it."},
+        "source": {"type": "string",
+                   "description": "Flat form of chart_spec.source. Used when chart_spec omits it."},
+        "title": {"type": "string",
+                  "description": "Flat form of chart_spec.title. Used when chart_spec omits it."},
         "field_display_names": {"type": "object",
                                 "description": "Column name -> label to print, e.g. {\"pop\": \"人口\"}."},
         "output": _OUTPUT,
     },
-    "required": ["data", "chart_spec"],
+    "required": ["data"],
 }
 
 CHART_RENDER = {
     "name": "chart_render",
     "description": (
-        "Draw a chart or graph (bar, line, stacked bar, 100% share) as a PNG image and check it: "
-        "every drawn bar, point and printed number is read back and compared with the input before "
+        "Draw a bar, line, or share chart as a PNG. "
+        "Every drawn bar, point and printed number is read back and compared with the input before "
         "the image is returned. Japanese text, 万/億 number formatting, color-blind-safe colors, axis titles with "
         "units and a source line are built in; bars always start at zero. Use it whenever the user "
         "wants to see numbers as a graph or needs a chart image for a report or a chat. To send the "
         "chart, copy the returned media line (MEDIA:/path.png) onto its own line in your reply; in a "
-        "terminal, give the path. Use alt_text from the result as the caption. On an error, follow "
-        "error.fix and call again. Keywords: chart, graph, plot, visualize, image, report, sales, "
+        "terminal, give the path. A share chart shows a percentage, including a stacked bar. "
+        "Use alt_text from the result as the caption. On an error, follow "
+        "error.fix and call again. Make or generate a graph from spreadsheet rows, with Japanese labels. "
+        "Keywords: chart, graph, plot, visualize, image, report, sales, "
         "population, statistics."),
     "parameters": _RENDER_PARAMS,
 }
@@ -112,8 +125,8 @@ CHART_RENDER = {
 CHART_VALIDATE = {
     "name": "chart_validate",
     "description": (
-        "Check a chart request without drawing: reads the data, reports problems with the row and "
-        "column at fault, and shows how the table was understood (categories, series, unit, sort). "
+        "Check a chart table before a PNG is drawn. "
+        "It reads the data, reports the row and column at fault, and shows categories, series, unit, and sort. "
         "Takes the same arguments as chart_render."),
     "parameters": _RENDER_PARAMS,
 }
@@ -121,8 +134,8 @@ CHART_VALIDATE = {
 CHART_TYPES = {
     "name": "chart_types",
     "description": (
-        "List the chart types chart_render offers, when to use each, the encodings they need, data "
-        "formats it reads, size presets and limits. Call it once when unsure which chart fits."),
+        "List chart types for a bar, line, or share graph. "
+        "It names when to use each, the encodings, data formats, size presets, and limits."),
     "parameters": {
         "type": "object",
         "properties": {"chart_type": {"type": "string", "enum": ["bar", "line", "stacked_bar", "share_bar"],
