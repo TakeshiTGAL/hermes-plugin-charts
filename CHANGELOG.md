@@ -4,7 +4,7 @@
 
 What was understood: `delivery`, `reply_guard`, and `unit_guard` each kept one entry per session and never dropped an old session. A unit seen on an earlier turn of the same session, and a chart path not yet attached, still have to be there later in that session. Clearing those maps on every turn would drop the unit block and the MEDIA line.
 
-What changed: each of those maps keeps at most 40 sessions. The oldest session is dropped when a newer session records a tool result, starts a turn, or remembers a chart path. Recording again in a session keeps it. A pending chart is still removed when the reply takes it. Each session still keeps the last 4 chart paths for 30 minutes, and a session's unit map still keeps the last 400 values. Pytest on this commit: 152 passed, 22 skipped.
+What changed: each of those maps keeps at most 40 sessions. The oldest session is dropped when a newer session records a tool result, starts a turn, or remembers a chart path. Recording again in a session keeps it. A pending chart is still removed when the reply takes it. Each session still keeps the last 4 chart paths for 30 minutes, and a session's unit map still keeps the last 400 values. Pytest on this commit: 152 passed, 22 skipped. The dispatcher test now puts the Hermes source tree first on the module path and drops a cached tools module from this repository, so that module no longer shadows the Hermes tools package and raises ImportError during a relative import.
 
 ## 0.1.10
 

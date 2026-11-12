@@ -1,6 +1,7 @@
 """A chart unit that differs from a remembered tool result is blocked before drawing."""
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import sys
@@ -111,14 +112,52 @@ def test_grouped_text_matches_the_integer_the_parser_reads():
     plugin.reply_guard.clear("s-comma")
 
 
+def _module_from_tree(module, root: Path) -> bool:
+    if module is None:
+        return False
+    filename = getattr(module, "__file__", None)
+    if filename:
+        return Path(filename).resolve().is_relative_to(root)
+    return any(Path(entry).resolve().is_relative_to(root) for entry in (getattr(module, "__path__", None) or ()))
+
+
+def _host_module(name: str) -> bool:
+    return name.split(".", 1)[0] in {"tools", "model_tools"}
+
+
+def _prefer_hermes_imports(monkeypatch):
+    """Read Hermes tools and model_tools, not this repo's tools.py, and restore both afterwards.
+
+    The repo root stays ahead of a Hermes tree that is already on sys.path. Importing
+    model_tools then loads this repo's tools.py, which fails on a relative import.
+    """
+    root = HERMES_SRC.resolve()
+    monkeypatch.syspath_prepend(str(root))
+    for name, module in list(sys.modules.items()):
+        if _host_module(name) and not _module_from_tree(module, root):
+            monkeypatch.delitem(sys.modules, name, raising=False)
+    importlib.invalidate_caches()
+    return root
+
+
+def _import_model_tools(monkeypatch):
+    root = _prefer_hermes_imports(monkeypatch)
+    present = {name for name in sys.modules if _host_module(name)}
+    import model_tools
+    for name in list(sys.modules):
+        if _host_module(name) and name not in present:
+            monkeypatch.setitem(sys.modules, name, sys.modules.pop(name))
+    assert _module_from_tree(model_tools, root), getattr(model_tools, "__file__", None)
+    assert _module_from_tree(sys.modules["tools"], root), getattr(sys.modules["tools"], "__file__", None)
+    return model_tools
+
+
 @pytest.fixture
 def hermes(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     if HERMES_SRC is None or not (HERMES_SRC / "hermes_cli" / "plugins.py").is_file():
         pytest.skip("set HERMES_SRC to a Hermes source tree")
-    src = str(HERMES_SRC)
-    if src not in sys.path:
-        sys.path.insert(0, src)
+    _prefer_hermes_imports(monkeypatch)
     try:
         import hermes_cli.plugins as hp
     except Exception as exc:
@@ -143,7 +182,7 @@ def test_dispatcher_blocks_before_the_handler(hermes, monkeypatch):
         }),
         session_id="s-dispatch",
     )
-    import model_tools
+    model_tools = _import_model_tools(monkeypatch)
     called = []
     monkeypatch.setattr(model_tools, "_execute_tool", lambda *_a, **_k: called.append("handler") or "{}")
     blocked = model_tools.handle_function_call(
