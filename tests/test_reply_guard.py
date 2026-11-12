@@ -404,3 +404,75 @@ def test_english_can_be_confirmed_without_a_tool_is_unchanged():
     assert plugin._attach_missing_media(
         response_text=text, session_id="s-en", platform="cli",
     ) is None
+
+
+def _remember_no_figure(plugin, session_id: str) -> None:
+    plugin.reply_guard.remember(
+        session_id,
+        "jp_corp_search",
+        json.dumps({"error": "api", "message": "gBizINFO returned HTTP 500."}),
+    )
+
+
+def test_forty_sessions_still_append_the_record_line():
+    plugin = _plugin()
+    try:
+        cap = plugin.reply_guard._MAX_SESSIONS
+        for i in range(cap):
+            _remember_no_figure(plugin, f"rg{i:02d}")
+        for i in range(cap):
+            out = plugin.reply_guard.rewrite(f"rg{i:02d}", "The number was retrieved.")
+            assert isinstance(out, str) and out.endswith(LINE)
+    finally:
+        plugin.reply_guard.clear()
+
+
+def test_the_forty_first_session_drops_the_oldest_record_and_a_refresh_keeps_it():
+    plugin = _plugin()
+    try:
+        cap = plugin.reply_guard._MAX_SESSIONS
+        for i in range(cap):
+            _remember_no_figure(plugin, f"rg{i:02d}")
+        _remember_no_figure(plugin, "rg00")
+        _remember_no_figure(plugin, f"rg{cap:02d}")
+        assert plugin.reply_guard.rewrite("rg01", "The number was retrieved.") is None
+        kept = plugin.reply_guard.rewrite("rg00", "The number was retrieved.")
+        newest = plugin.reply_guard.rewrite(f"rg{cap:02d}", "The number was retrieved.")
+        assert isinstance(kept, str) and kept.endswith(LINE)
+        assert isinstance(newest, str) and newest.endswith(LINE)
+        assert len(plugin.reply_guard._called) <= cap
+        assert len(plugin.reply_guard._facts) <= cap
+    finally:
+        plugin.reply_guard.clear()
+
+
+def test_note_user_keeps_forty_chart_turns_and_drops_the_oldest():
+    plugin = _plugin()
+    try:
+        cap = plugin.reply_guard._MAX_SESSIONS
+        for i in range(cap):
+            plugin.reply_guard.note_user(f"nu{i:02d}", "図を描いて")
+        for i in range(cap):
+            assert plugin.reply_guard.facts(f"nu{i:02d}")["chart_talk"] is True
+        plugin.reply_guard.note_user("nu00", "図を描いて")
+        plugin.reply_guard.note_user(f"nu{cap:02d}", "図を描いて")
+        assert plugin.reply_guard.facts("nu01")["chart_talk"] is False
+        assert plugin.reply_guard.facts("nu00")["chart_talk"] is True
+        assert len(plugin.reply_guard._facts) <= cap
+    finally:
+        plugin.reply_guard.clear()
+
+
+def test_clear_one_reply_session_frees_its_slot():
+    plugin = _plugin()
+    try:
+        cap = plugin.reply_guard._MAX_SESSIONS
+        for i in range(cap):
+            _remember_no_figure(plugin, f"rg{i:02d}")
+        plugin.reply_guard.clear("rg00")
+        _remember_no_figure(plugin, "extra")
+        assert plugin.reply_guard.rewrite("rg01", "The number was retrieved.").endswith(LINE)
+        assert plugin.reply_guard.rewrite("extra", "The number was retrieved.").endswith(LINE)
+        assert plugin.reply_guard.rewrite("rg00", "The number was retrieved.") is None
+    finally:
+        plugin.reply_guard.clear()

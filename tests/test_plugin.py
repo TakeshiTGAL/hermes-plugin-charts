@@ -164,3 +164,62 @@ def test_registers_on_an_older_hermes():
     plugin.register(ctx)
     assert ctx.tools == ["chart_render", "chart_validate", "chart_types"]
     plugin.register(FakeCtx())
+
+
+def test_forty_pending_sessions_each_keep_their_chart(tmp_path, plugin):
+    plugin.delivery.clear()
+    try:
+        cap = plugin.delivery._MAX_SESSIONS
+        paths = []
+        for i in range(cap):
+            path = tmp_path / f"c{i:02d}.png"
+            path.write_bytes(b"png")
+            plugin.delivery.remember(f"d{i:02d}", str(path))
+            paths.append(str(path))
+        for i in range(cap):
+            assert plugin.delivery.take(f"d{i:02d}") == [paths[i]]
+    finally:
+        plugin.delivery.clear()
+
+
+def test_the_forty_first_pending_session_drops_the_oldest_and_a_refresh_keeps_it(tmp_path, plugin):
+    plugin.delivery.clear()
+    try:
+        cap = plugin.delivery._MAX_SESSIONS
+        paths = []
+        for i in range(cap):
+            path = tmp_path / f"c{i:02d}.png"
+            path.write_bytes(b"png")
+            plugin.delivery.remember(f"d{i:02d}", str(path))
+            paths.append(str(path))
+        plugin.delivery.remember("d00", paths[0])
+        extra = tmp_path / "extra.png"
+        extra.write_bytes(b"png")
+        plugin.delivery.remember(f"d{cap:02d}", str(extra))
+        assert plugin.delivery.take("d01") == []
+        assert paths[0] in plugin.delivery.take("d00")
+        assert plugin.delivery.take(f"d{cap:02d}") == [str(extra)]
+        assert len(plugin.delivery._pending) <= cap
+    finally:
+        plugin.delivery.clear()
+
+
+def test_clear_one_pending_session_frees_its_slot(tmp_path, plugin):
+    plugin.delivery.clear()
+    try:
+        cap = plugin.delivery._MAX_SESSIONS
+        paths = []
+        for i in range(cap):
+            path = tmp_path / f"c{i:02d}.png"
+            path.write_bytes(b"png")
+            plugin.delivery.remember(f"d{i:02d}", str(path))
+            paths.append(str(path))
+        plugin.delivery.clear("d00")
+        extra = tmp_path / "extra.png"
+        extra.write_bytes(b"png")
+        plugin.delivery.remember("extra", str(extra))
+        assert plugin.delivery.take("d01") == [paths[1]]
+        assert plugin.delivery.take("extra") == [str(extra)]
+        assert plugin.delivery.take("d00") == []
+    finally:
+        plugin.delivery.clear()

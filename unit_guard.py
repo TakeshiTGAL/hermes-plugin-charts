@@ -27,15 +27,29 @@ _NUMBER_SPAN = re.compile(
 )
 
 _MAX = 400
+_MAX_SESSIONS = 40
 _SKIP_TOOLS = frozenset({"chart_render", "chart_validate", "chart_types"})
-_seen: dict[str, "OrderedDict[str, set[str]]"] = {}
+_seen: dict[str, "OrderedDict[str, set[str]]"] = {}  # bounded: at most 40 sessions, oldest dropped; each session keeps the last 400 value keys
+_sessions: list[str] = []  # bounded: at most 40 session ids; dropping the oldest drops that session's unit pairs
 
 
 def clear(session_id: Optional[str] = None) -> None:
     if session_id is None:
         _seen.clear()
+        _sessions.clear()
     else:
         _seen.pop(session_id, None)
+        if session_id in _sessions:
+            _sessions.remove(session_id)
+
+
+def _touch(session_id: str) -> None:
+    """Count this session as newest, then drop sessions past the cap."""
+    if session_id in _sessions:
+        _sessions.remove(session_id)
+    _sessions.append(session_id)
+    while len(_sessions) > _MAX_SESSIONS:
+        clear(_sessions.pop(0))
 
 
 def _key(value: Any) -> Optional[str]:
@@ -94,6 +108,7 @@ def remember(session_id: str, tool_name: str, result: Any) -> None:
         bucket.move_to_end(key)
     while len(bucket) > _MAX:
         bucket.popitem(last=False)
+    _touch(session_id)
 
 
 def _chart_unit(args: dict) -> str:

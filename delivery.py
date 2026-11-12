@@ -27,9 +27,41 @@ NO_ATTACHMENT_PLATFORMS = frozenset({"", "cli", "tui", "acp", "sms", "local",
                                      "api_server", "webhook", "msgraph_webhook"})
 PENDING_TTL_SECONDS = 30 * 60
 MAX_ATTACH_PER_TURN = 4
+_MAX_SESSIONS = 40
 
-_pending: Dict[str, List[Tuple[float, str]]] = {}
+_pending: Dict[str, List[Tuple[float, str]]] = {}  # bounded: at most 40 sessions, oldest dropped; each session keeps the last 4 paths for 30 minutes, and take() removes that session
+_sessions: List[str] = []  # bounded: at most 40 session ids; dropping the oldest drops that session's pending charts
 _lock = threading.Lock()
+
+
+def _drop_locked(session_id: str) -> None:
+    _pending.pop(session_id, None)
+    if session_id in _sessions:
+        _sessions.remove(session_id)
+
+
+def clear(session_id: Optional[str] = None) -> None:
+    with _lock:
+        if session_id is None:
+            _pending.clear()
+            _sessions.clear()
+            return
+        _drop_locked(session_id)
+
+
+def _touch_locked(session_id: str, now: float) -> None:
+    """Count this session as newest, drop expired sessions, then drop past the cap."""
+    stale = [
+        sid for sid in _sessions
+        if sid != session_id and not any(now - t < PENDING_TTL_SECONDS for t, _path in _pending.get(sid, []))
+    ]
+    for sid in stale:
+        _drop_locked(sid)
+    if session_id in _sessions:
+        _sessions.remove(session_id)
+    _sessions.append(session_id)
+    while len(_sessions) > _MAX_SESSIONS:
+        _drop_locked(_sessions.pop(0))
 
 
 def output_dir() -> str:
@@ -70,12 +102,15 @@ def remember(session_id: Optional[str], path: str) -> None:
         items = [(t, p) for t, p in _pending.get(session_id, []) if now - t < PENDING_TTL_SECONDS]
         items.append((now, path))
         _pending[session_id] = items[-MAX_ATTACH_PER_TURN:]
+        _touch_locked(session_id, now)
 
 
 def take(session_id: str) -> List[str]:
     now = time.time()
     with _lock:
         items = _pending.pop(session_id, [])
+        if session_id in _sessions:
+            _sessions.remove(session_id)
     return [p for t, p in items if now - t < PENDING_TTL_SECONDS and os.path.isfile(p)]
 
 

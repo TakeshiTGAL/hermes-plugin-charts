@@ -156,3 +156,59 @@ def test_dispatcher_blocks_before_the_handler(hermes, monkeypatch):
     assert "blocked" in str(blocked)
     assert "円" in str(blocked)
     plugin.unit_guard.clear("s-dispatch")
+
+
+def _remember_yen(plugin, session_id: str) -> None:
+    plugin.unit_guard.remember(
+        session_id,
+        "edinet_financials",
+        {"value": 1200, "unit": "円"},
+    )
+
+
+def test_forty_sessions_each_keep_the_unit_block():
+    plugin = _plugin()
+    plugin.unit_guard.clear()
+    try:
+        cap = plugin.unit_guard._MAX_SESSIONS
+        for i in range(cap):
+            _remember_yen(plugin, f"u{i:02d}")
+        for i in range(cap):
+            assert plugin.unit_guard.mismatch_message(f"u{i:02d}", _chart("百万円", 1200))
+            assert plugin.unit_guard.mismatch_message(f"u{i:02d}", _chart("円", 1200)) is None
+    finally:
+        plugin.unit_guard.clear()
+
+
+def test_the_forty_first_session_drops_the_oldest_unit_and_a_refresh_keeps_it():
+    plugin = _plugin()
+    plugin.unit_guard.clear()
+    try:
+        cap = plugin.unit_guard._MAX_SESSIONS
+        for i in range(cap):
+            _remember_yen(plugin, f"u{i:02d}")
+        _remember_yen(plugin, "u00")
+        _remember_yen(plugin, f"u{cap:02d}")
+        assert plugin.unit_guard.mismatch_message("u01", _chart("百万円", 1200)) is None
+        assert plugin.unit_guard.mismatch_message("u00", _chart("百万円", 1200))
+        assert plugin.unit_guard.mismatch_message(f"u{cap:02d}", _chart("百万円", 1200))
+        assert plugin.unit_guard.mismatch_message("u00", _chart("円", 1200)) is None
+        assert len(plugin.unit_guard._seen) <= cap
+    finally:
+        plugin.unit_guard.clear()
+
+
+def test_clear_one_unit_session_frees_its_slot():
+    plugin = _plugin()
+    plugin.unit_guard.clear()
+    try:
+        cap = plugin.unit_guard._MAX_SESSIONS
+        for i in range(cap):
+            _remember_yen(plugin, f"u{i:02d}")
+        plugin.unit_guard.clear("u00")
+        _remember_yen(plugin, "extra")
+        assert plugin.unit_guard.mismatch_message("u01", _chart("百万円", 1200))
+        assert plugin.unit_guard.mismatch_message("extra", _chart("百万円", 1200))
+        assert plugin.unit_guard.mismatch_message("u00", _chart("百万円", 1200)) is None
+    finally:
+        plugin.unit_guard.clear()

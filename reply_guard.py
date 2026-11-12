@@ -48,10 +48,12 @@ _GROUP_COMMA = re.compile(r"(?<=\d),(?=\d)")
 _LONG_DIGITS = re.compile(r"\d{10,}")
 _MAX_NOTES = 6
 _MAX_DIGITS = 400
-_called: dict[str, set[str]] = {}
-_notes: dict[str, list[str]] = {}
-_digits: dict[str, set[str]] = {}
-_facts: dict[str, dict] = {}
+_MAX_SESSIONS = 40
+_called: dict[str, set[str]] = {}  # bounded: at most 40 sessions, oldest dropped; this session's tool names are cleared on the next note_user
+_notes: dict[str, list[str]] = {}  # bounded: at most 40 sessions, oldest dropped; each list keeps the last 6 and is cleared on the next note_user
+_digits: dict[str, set[str]] = {}  # bounded: at most 40 sessions, oldest dropped; each set keeps at most 400 and is cleared on the next note_user
+_facts: dict[str, dict] = {}  # bounded: at most 40 sessions, oldest dropped; replaced on the next note_user
+_sessions: list[str] = []  # bounded: at most 40 session ids; dropping the oldest drops that session's turn record
 
 
 def _blank() -> dict:
@@ -129,11 +131,23 @@ def clear(session_id: Optional[str] = None) -> None:
         _notes.clear()
         _digits.clear()
         _facts.clear()
+        _sessions.clear()
         return
     _called.pop(session_id, None)
     _notes.pop(session_id, None)
     _digits.pop(session_id, None)
     _facts.pop(session_id, None)
+    if session_id in _sessions:
+        _sessions.remove(session_id)
+
+
+def _touch(session_id: str) -> None:
+    """Count this session as newest, then drop sessions past the cap."""
+    if session_id in _sessions:
+        _sessions.remove(session_id)
+    _sessions.append(session_id)
+    while len(_sessions) > _MAX_SESSIONS:
+        clear(_sessions.pop(0))
 
 
 def _parse(result: Any) -> Any:
@@ -211,6 +225,7 @@ def note_user(session_id: str, user_message: Any, conversation_history: Any = No
     facts_now["company_talk"] = "company" in scopes
     facts_now["chart_talk"] = "chart" in scopes
     _facts[sid] = facts_now
+    _touch(sid)
 
 
 def _take_industry(item: Any, found: list[str]) -> None:
@@ -319,6 +334,7 @@ def remember(session_id: str, tool_name: str, result: Any) -> None:
     if _is_figure(tool_name or "", result):
         facts = _facts.setdefault(sid, _blank())
         facts["figure"] = True
+    _touch(sid)
 
 
 def rewrite(session_id: str, response_text: str) -> Optional[str]:

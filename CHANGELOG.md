@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.11
+
+What was understood: `delivery`, `reply_guard`, and `unit_guard` each kept one entry per session and never dropped an old session. A unit seen on an earlier turn of the same session, and a chart path not yet attached, still have to be there later in that session. Clearing those maps on every turn would drop the unit block and the MEDIA line.
+
+What changed: each of those maps keeps at most 40 sessions. The oldest session is dropped when a newer session records a tool result, starts a turn, or remembers a chart path. Recording again in a session keeps it. A pending chart is still removed when the reply takes it. Each session still keeps the last 4 chart paths for 30 minutes, and a session's unit map still keeps the last 400 values. Pytest on this commit: 152 passed, 22 skipped.
+
 ## 0.1.10
 
 What was understood: company talk treated two katakana characters followed by kanji as a registry name. `Pythonでフィボナッチ数列を計算する関数を書いて。` and `グラタン皿でチーズグラタンを作る手順を教えて。` therefore received the chart paragraph, and a later `write_file` appended the tool-record line. The same shape was copied into the other five books. Pytest before this change, on 0.1.9: 137 passed, 23 skipped.
