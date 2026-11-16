@@ -87,7 +87,7 @@ A request looks like this:
 }
 ```
 
-Chart types: `bar` (sorted largest first; grouped when there are several y columns; horizontal when labels are long), `line` (dates sorted oldest to newest; gaps for missing periods), `stacked_bar`, and `share_bar` (100% bands, used instead of a pie chart). `x` is always the category or date column, and `y` the numbers, for horizontal bars too. The plugin swaps them back if a model mixes them up. Limits: 8 series, 40 bars, 30 stacks, 15 bands, 500 line points. Each limit comes with an error that suggests `top_n` or an "Other" group.
+Chart types: `bar` (sorted largest first, except dates and months such as Jan, January, Jan 2026, 1月, or 2026-01, which stay in time order; grouped when there are several y columns; horizontal when labels are long), `line` (dates sorted oldest to newest, including a month name such as Jan or January; gaps for missing periods), `stacked_bar`, and `share_bar` (100% bands, used instead of a pie chart). `x` is always the category or date column, and `y` the numbers, for horizontal bars too. The plugin swaps them back if a model mixes them up. Limits: 8 series, 40 bars, 30 stacks, 15 bands, 500 line points. Each limit comes with an error that suggests `top_n` or an "Other" group.
 
 ## Settings
 

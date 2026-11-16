@@ -59,7 +59,8 @@ def _when(plan: Plan, i: int) -> str:
     """'2025-04' -> '2025年4月' / 'Apr 2025' for captions; other labels as given."""
     from .spec import _date_keys
     keys = _date_keys(plan.categories)
-    if not keys or not (1 <= keys[i][1] <= 12):
+    # Year -1 is a month name with no year. The caption keeps the written label.
+    if not keys or not (1 <= keys[i][1] <= 12) or keys[i][0] < 0:
         return plan.categories[i]
     y, m, _ = keys[i]
     months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
@@ -277,7 +278,8 @@ def chart_validate(args: Dict[str, Any], **_: Any) -> str:
 CHART_GUIDE = {
     "bar": {
         "use_for": "Comparing amounts across categories (prefectures, products, branches). Sorted "
-                   "largest first by default. Horizontal when labels are long or there are many "
+                   "largest first by default. Dates and month names (Jan, January, Jan 2026, 1月, "
+                   "2026-01) stay in time order. Horizontal when labels are long or there are many "
                    "categories; vertical otherwise (override with orientation).",
         "encodings": "x = category column, y = number column (or a list of number columns for grouped "
                      "bars), color = optional series column for a long table.",
@@ -289,7 +291,8 @@ CHART_GUIDE = {
                                    "top_n": 10}},
     },
     "line": {
-        "use_for": "Change over time (months, quarters, years). Dates are put in time order. Up to "
+        "use_for": "Change over time (months, quarters, years). Dates are put in time order, "
+                   "including a month name such as Jan, January, or Jan 2026. Up to "
                    "4 series are labeled at the line end, more get a legend.",
         "encodings": "x = date/period column, y = number column(s), color = optional series column.",
         "always_from_zero": "yes by default; set y_zero false only when the change itself is the point "

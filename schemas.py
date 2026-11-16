@@ -59,7 +59,7 @@ _CHART_SPEC = {
         },
         "orientation": {"type": "string", "enum": ["auto", "horizontal", "vertical"]},
         "sort": {"type": "string", "enum": ["auto", "desc", "asc", "none"],
-                 "description": "auto: bars largest first, dates in time order."},
+                 "description": "auto: bars largest first, dates and month names in time order."},
         "top_n": {"type": "integer", "description": "Keep the first N categories after sorting; the "
                                                     "chart notes 'top N of M'."},
         "highlight": {"type": "array", "items": {"type": "string"},

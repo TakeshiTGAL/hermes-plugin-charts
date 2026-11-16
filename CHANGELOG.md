@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.12
+
+What was understood: `sort=auto` ranks a single-series bar largest first unless the categories look like time. `_looks_like_time` accepted `1月` and numeric dates such as `2026-01`. It did not accept an English month name. A phone bar chart of Jan 1.2億円, Feb 1.5億円, Mar 9800万円, source "sample data", was therefore drawn Feb, Jan, Mar. On this tree, `build_plan` of those three rows returned `[('Feb', 150000000.0), ('Jan', 120000000.0), ('Mar', 98000000.0)]`, and `_looks_like_time(["Jan", "Feb", "Mar"])` was false. `spec.py` is the same at catalog pin `8eff93d` (0.1.10) and at `adf11d0` (0.1.11), so the pin does this too.
+
+What changed: a month name is a date. Short and long English names, any letter case, an optional period, and a 4-digit year (`Jan`, `January`, `JAN.`, `Jan 2026`, `2026-Jan`) take that month's place. So do `1/2026` and a kanji month (`三月`, `2026年三月`). A bar keeps the order it was given, instead of ranking by size. A line is sorted oldest to newest. `1月` is unchanged: it was already a time series, a bar keeps the given order, and a line is not reordered. Keys for `2026-01`, `2026年3月`, `2025年度`, and `2026 Q1` are unchanged. `sort=desc` still ranks by size. The sort description now says month names stay in time order. A month with no year is not printed with a year of -1.
+
+How checked: pytest with `HOME` set to a temporary directory. matplotlib was not installed, so the drawing tests skipped. 178 passed, 23 skipped. Collected tests went from 173 to 200. The three-month example is `test_jan_feb_mar_sales_stay_in_time_order`.
+
+v0.23.1: this does not follow a Hermes API added in v0.23.1. `requires_hermes` stays `>=0.21.4`. No new tool, hook, destination, or write path. The same file loads on v0.22.2, v0.23.1, and canary-main.
+
 ## 0.1.11
 
 What was understood: `delivery`, `reply_guard`, and `unit_guard` each kept one entry per session and never dropped an old session. A unit seen on an earlier turn of the same session, and a chart path not yet attached, still have to be there later in that session. Clearing those maps on every turn would drop the unit block and the MEDIA line.

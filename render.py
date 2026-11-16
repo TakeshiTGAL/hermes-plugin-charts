@@ -148,7 +148,9 @@ def _display_categories(plan: Plan) -> List[str]:
         return list(plan.categories)
     from .spec import _date_keys
     keys = _date_keys(plan.categories)
-    if not keys or any(k[1] == 0 for k in keys) or len({k[2] for k in keys}) > 1:
+    # Year -1 is a month name with no year (Jan, 三月). Keep the written label.
+    # A negative year must not be printed under the tick.
+    if not keys or any(k[0] < 0 or k[1] == 0 for k in keys) or len({k[2] for k in keys}) > 1:
         return list(plan.categories)
     months_en = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
     out = []

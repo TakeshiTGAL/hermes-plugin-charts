@@ -612,24 +612,78 @@ _DATE_PATTERNS = (
     (re.compile(r"^(\d{4})\s*[QqＱ]([1-4])$"), "yq"),
 )
 
+# A month name the user typed, with or without a 4-digit year: Jan, January,
+# JAN, Jan., Jan 2026, 2026-Jan, January, 2026. "sept" is the other short form of September.
+_EN_MONTH_RE = re.compile(
+    r"^(?:(?P<y1>\d{4})[\s./-]+)?"
+    r"(?P<name>jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
+    r"jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+    r"\.?(?:[\s./,-]+(?P<y2>\d{4}))?$",
+    re.IGNORECASE,
+)
+_EN_MONTHS = {}
+for _n, _name in enumerate(
+    ("january", "february", "march", "april", "may", "june",
+     "july", "august", "september", "october", "november", "december"), 1):
+    _EN_MONTHS[_name] = _n
+    _EN_MONTHS[_name[:3]] = _n
+_EN_MONTHS["sept"] = 9
+
+# 十一月 before 十, so the longer name wins. A leading year is 2026年三月.
+_KANJI_MONTHS = {name: i for i, name in enumerate(
+    ("", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二")) if name}
+_KANJI_MONTH_RE = re.compile(
+    r"^(?:(?P<y>\d{4})年\s*)?(?P<name>十一|十二|十|[一二三四五六七八九])月$")
+# Month then a 4-digit year: 1/2026, 01-2026. Year-first forms stay on _DATE_PATTERNS.
+_MDY_RE = re.compile(r"^(?P<m>0?[1-9]|1[0-2])[-/.](?P<y>\d{4})$")
+
 
 def _date_keys(labels: List[str]) -> Optional[List[Tuple[int, int, int]]]:
     out = []
     for label in labels:
-        s = unicodedata.normalize("NFKC", label).strip()
-        for pat, kind in _DATE_PATTERNS:
-            m = pat.match(s)
-            if m:
-                if kind == "ymd":
-                    out.append((int(m.group(1)), int(m.group(2)), int(m.group(3) or 1)))
-                elif kind == "y":
-                    out.append((int(m.group(1)), 0, 0))
-                else:
-                    out.append((int(m.group(1)), int(m.group(2)) * 3, 0))
-                break
-        else:
+        key = _one_date_key(label)
+        if key is None:
             return None
+        out.append(key)
     return out
+
+
+def _one_date_key(label: str) -> Optional[Tuple[int, int, int]]:
+    s = unicodedata.normalize("NFKC", label).strip()
+    for pat, kind in _DATE_PATTERNS:
+        m = pat.match(s)
+        if not m:
+            continue
+        if kind == "ymd":
+            return (int(m.group(1)), int(m.group(2)), int(m.group(3) or 1))
+        if kind == "y":
+            return (int(m.group(1)), 0, 0)
+        return (int(m.group(1)), int(m.group(2)) * 3, 0)
+    return _named_month_key(s)
+
+
+def _named_month_key(s: str) -> Optional[Tuple[int, int, int]]:
+    """A month the user named. Year -1 means no year was written.
+
+    Line charts sort Jan before Mar. Tick labels keep the written text, because
+    a negative year is not a year to print. ``1月`` is not handled here: it was
+    already a time series, and a line of those labels stays in the order given.
+    """
+    m = _EN_MONTH_RE.match(s)
+    if m:
+        y1, y2 = m.group("y1"), m.group("y2")
+        if y1 and y2 and int(y1) != int(y2):
+            return None
+        year = int(y1 or y2) if (y1 or y2) else -1
+        return (year, _EN_MONTHS[m.group("name").casefold()], 1 if year > 0 else 0)
+    m = _MDY_RE.match(s)
+    if m:
+        return (int(m.group("y")), int(m.group("m")), 1)
+    m = _KANJI_MONTH_RE.match(s)
+    if m:
+        year = int(m.group("y")) if m.group("y") else -1
+        return (year, _KANJI_MONTHS[m.group("name")], 1 if year > 0 else 0)
+    return None
 
 
 def _looks_like_time(labels: List[str]) -> bool:
